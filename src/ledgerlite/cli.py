@@ -12,13 +12,44 @@ from .models import Entry
 DEFAULT_LEDGER = Path("ledger.json")
 
 
+def _validate_add(category: str, amount: str) -> tuple[str, int] | None:
+    """Return (error message, exit code) if invalid, else None."""
+    if not category.strip():
+        return ("error: category is required", 2)
+    try:
+        value = Decimal(amount)
+        if not value.is_finite() or value <= 0:
+            return ("error: amount must be positive", 2)
+    except Exception:
+        return ("error: amount must be positive", 2)
+    return None
+
+
 def cmd_add(args: argparse.Namespace) -> int:
+    problem = _validate_add(args.category, args.amount)
+    if problem:
+        msg, code = problem
+        print(msg, file=sys.stderr)
+        return code
     entries = store.load(args.ledger)
     day = date.fromisoformat(args.day)
     entry = Entry(day=day, category=args.category, amount=Decimal(args.amount))
     entries.append(entry)
     store.save(args.ledger, entries)
     print(f"added {args.category} {args.amount} on {args.day}")
+    return 0
+
+
+def cmd_budget_set(args: argparse.Namespace) -> int:
+    problem = _validate_add(args.category, args.amount)
+    if problem:
+        msg, code = problem
+        print(msg, file=sys.stderr)
+        return code
+    budgets = store.load_budgets(args.ledger)
+    budgets[args.category] = Decimal(args.amount)
+    store.save_budgets(args.ledger, budgets)
+    print(f"budget {args.category} set to {args.amount}")
     return 0
 
 
@@ -59,6 +90,15 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--year", type=int, required=True)
     r.add_argument("--month", type=int, required=True)
     r.set_defaults(func=cmd_report)
+
+    b = sub.add_parser("budget", help="manage category budgets")
+    bsub = b.add_subparsers(dest="budget_command", required=True)
+
+    bs = bsub.add_parser("set", help="set a category budget")
+    bs.add_argument("category")
+    bs.add_argument("amount")
+    bs.set_defaults(func=cmd_budget_set)
+
     return p
 
 
