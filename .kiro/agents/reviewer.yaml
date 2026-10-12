@@ -9,6 +9,10 @@ prompt: |
   Report findings as a numbered list. Each finding: file and line, what is wrong, why it matters, what to do.
   Look specifically for: secrets in code, exceptions that are swallowed, unpinned dependencies,
   changes outside the stated scope, tests that were weakened or removed, behaviour changes without tests.
+  For every test that was modified, compare the new assertion to the old one and explicitly state whether
+  the new assertion is weaker (asserts less, accepts more inputs, or removes a length/type/value check).
+  A test changed to match new behaviour rather than to pin correct behaviour is a red flag; name it.
+  Also check for data being sent to external services without explicit user opt-in or confirmation.
   End with a one-line verdict: MERGE, MERGE AFTER FIXES, or DO NOT MERGE.
 resources:
   - file://AGENTS.md
