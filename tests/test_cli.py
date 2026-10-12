@@ -88,3 +88,79 @@ def test_budget_set_empty_category(tmp_path, capsys):
     assert rc == 2
     assert "category is required" in capsys.readouterr().err
     assert not ledger.exists()
+
+
+# --- Task 3: budget status tests ---
+
+def test_budget_status_shows_values(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "3200"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "food" in out
+    assert "5000" in out
+    assert "3200" in out
+    assert "1800" in out
+
+
+def test_budget_status_negative_remaining(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "100"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "150"])
+    capsys.readouterr()
+    main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    out = capsys.readouterr().out
+    assert "-50" in out
+
+
+def test_budget_status_no_budgets(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "100"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    assert rc == 0
+    assert "no budgets set" in capsys.readouterr().out
+
+
+def test_budget_status_omits_unbudgeted(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "rent", "15000"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "100"])
+    capsys.readouterr()
+    main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    out = capsys.readouterr().out
+    assert "food" not in out
+    assert "rent" in out
+
+
+def test_budget_status_december(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "12"])
+    assert rc == 0
+
+
+def test_budget_status_invalid_month(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "13"])
+    assert rc == 2
+    assert "invalid year/month" in capsys.readouterr().err
+
+
+def test_budget_status_invalid_year(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "0", "--month", "1"])
+    assert rc == 2
+    assert "invalid year/month" in capsys.readouterr().err

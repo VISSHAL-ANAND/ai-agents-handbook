@@ -53,6 +53,43 @@ def cmd_budget_set(args: argparse.Namespace) -> int:
     return 0
 
 
+def _month_last_day(year: int, month: int) -> date:
+    """Last calendar day of any month, including December."""
+    if month == 12:
+        return date(year, 12, 31)
+    return date(year, month + 1, 1) - __import__("datetime").timedelta(days=1)
+
+
+def cmd_budget_status(args: argparse.Namespace) -> int:
+    try:
+        first = date(args.year, args.month, 1)
+        last = _month_last_day(args.year, args.month)
+    except ValueError:
+        print("error: invalid year/month", file=sys.stderr)
+        return 2
+
+    budgets = store.load_budgets(args.ledger)
+    if not budgets:
+        print("no budgets set")
+        return 0
+
+    entries = store.load(args.ledger)
+    month_entries = [e for e in entries if first <= e.day <= last]
+    totals = report.totals_by_category(month_entries)
+
+    for category in sorted(budgets):
+        budget_amt = budgets[category]
+        spent = totals.get(category, Decimal("0"))
+        remaining = budget_amt - spent
+        print(
+            f"{category:<16}"
+            f"  budget: {budget_amt:>10.2f}"
+            f"  spent: {spent:>10.2f}"
+            f"  remaining: {remaining:>10.2f}"
+        )
+    return 0
+
+
 def cmd_list(args: argparse.Namespace) -> int:
     entries = sorted(store.load(args.ledger), key=lambda e: e.day)
     if args.last:
@@ -98,6 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
     bs.add_argument("category")
     bs.add_argument("amount")
     bs.set_defaults(func=cmd_budget_set)
+
+    bst = bsub.add_parser("status", help="show budget vs. spend for a month")
+    bst.add_argument("--year", type=int, required=True)
+    bst.add_argument("--month", type=int, required=True)
+    bst.set_defaults(func=cmd_budget_status)
 
     return p
 
