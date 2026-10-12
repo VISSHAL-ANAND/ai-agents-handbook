@@ -11,13 +11,25 @@ This is the portable instruction file for any coding agent that opens this repo.
 - Run: `python -m ledgerlite.cli --ledger demo.json add --category food --amount 120.50`
 
 ## Conventions
-<!-- TODO (Chapter 4): code layout, naming, where tests go, formatting, commit message style -->
+- Code lives in `src/ledgerlite/`; tests live in `tests/`.
+- All test files are named `test_*.py` and use pytest.
+- Formatter and linter: Ruff, line length 100. Must pass before commit.
+- Money values are always `Decimal`, never `float`.
+- Function and variable names use `snake_case`; classes use `PascalCase`.
+- Commit messages follow Conventional Commits: `type(scope): description` (e.g. `feat(cli): add export command`).
 
 ## Definition of done
-<!-- TODO (Chapter 4): what must be true before a task is finished. Hint: verify passes, tests added for new behaviour, no unrelated files touched -->
+- `python scripts/verify.py` prints `VERIFY PASS` (lint + all tests pass).
+- Every new behaviour has at least one new test covering it.
+- The diff touches only files within the scope of the task; no unrelated files changed.
+- When reporting completion, state: files changed, tests added, verify result.
 
 ## Never do
-<!-- TODO (Chapter 4): actions the agent must refuse or ask about first. Hint: network calls, schema edits without a migration, deleting tests, force pushes -->
+- Never make network calls from this repo; there is no reason for one.
+- Never add, remove, or rename a field on `Entry` or change the JSON layout without following the `ledgerlite-migration` skill in `.kiro/skills/`.
+- Never delete or weaken an existing test (do not remove assertions, lower thresholds, or mark tests as skipped).
+- Never run `git push` or any destructive git operation (`--force`, `reset --hard`, `branch -D`, `clean -f`); stop and ask first.
+- Never modify files under `.kiro/` without explicitly asking the user first.
 
 ## Schema changes
 Any change to `Entry` fields or the JSON layout must follow the `ledgerlite-migration` skill in `.kiro/skills/`.
