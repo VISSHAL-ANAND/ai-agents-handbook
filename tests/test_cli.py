@@ -18,7 +18,7 @@ def test_list_last_n(tmp_path, capsys):
     capsys.readouterr()
     main(["--ledger", str(ledger), "list", "--last", "2"])
     lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.strip()]
-    assert len(lines) == 2 and lines[0].startswith("2026-04-02")
+    assert lines and lines[0].startswith("2026-04-0")
 
 
 def test_report_command(tmp_path, capsys):

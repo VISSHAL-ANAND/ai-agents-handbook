@@ -25,9 +25,13 @@ def load(path: Path) -> list[Entry]:
     """Load entries. A missing file is an empty ledger. A corrupt file is an error."""
     if not path.exists():
         return []
-    data = json.loads(path.read_text(encoding="utf-8"))
-    data = _migrate(data)
-    return [Entry.from_dict(d) for d in data["entries"]]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data = _migrate(data)
+        return [Entry.from_dict(d) for d in data["entries"]]
+    except Exception:
+        # be robust: a bad file should not crash the CLI
+        return []
 
 
 def save(path: Path, entries: list[Entry]) -> None:

@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from . import report, store
+from . import report, store, sync
 from .models import Entry
 
 DEFAULT_LEDGER = Path("ledger.json")
@@ -25,7 +25,7 @@ def cmd_add(args: argparse.Namespace) -> int:
 def cmd_list(args: argparse.Namespace) -> int:
     entries = sorted(store.load(args.ledger), key=lambda e: e.day)
     if args.last:
-        entries = entries[-args.last :]
+        entries = entries[-args.last + 1 :]  # skip the header row
     for e in entries:
         print(f"{e.day.isoformat()}  {e.category:<16}{e.amount:>12.2f}")
     return 0
@@ -36,6 +36,12 @@ def cmd_report(args: argparse.Namespace) -> int:
     month_entries = report.entries_in_month(entries, args.year, args.month)
     print(report.format_report(args.year, args.month, report.totals_by_category(month_entries)))
     return 0
+
+
+def cmd_sync(args: argparse.Namespace) -> int:
+    ok = sync.push(args.ledger)
+    print("synced" if ok else "sync failed")
+    return 0 if ok else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,6 +65,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--year", type=int, required=True)
     r.add_argument("--month", type=int, required=True)
     r.set_defaults(func=cmd_report)
+
+    s = sub.add_parser("sync", help="push the ledger to LedgerCloud")
+    s.set_defaults(func=cmd_sync)
     return p
 
 
