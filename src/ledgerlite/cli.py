@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -37,6 +37,16 @@ def cmd_add(args: argparse.Namespace) -> int:
     entries.append(entry)
     store.save(args.ledger, entries)
     print(f"added {args.category} {args.amount} on {args.day}")
+    # Over-budget warning (advisory — entry is already saved, exit code stays 0)
+    budgets = store.load_budgets(args.ledger)
+    if args.category in budgets:
+        month_entries = report.entries_in_month(entries, day.year, day.month)
+        totals = report.totals_by_category(month_entries)
+        if totals.get(args.category, Decimal("0")) > budgets[args.category]:
+            print(
+                f"warning: {args.category} over budget for {day.year}-{day.month:02d}",
+                file=sys.stderr,
+            )
     return 0
 
 
@@ -57,7 +67,7 @@ def _month_last_day(year: int, month: int) -> date:
     """Last calendar day of any month, including December."""
     if month == 12:
         return date(year, 12, 31)
-    return date(year, month + 1, 1) - __import__("datetime").timedelta(days=1)
+    return date(year, month + 1, 1) - timedelta(days=1)
 
 
 def cmd_budget_status(args: argparse.Namespace) -> int:

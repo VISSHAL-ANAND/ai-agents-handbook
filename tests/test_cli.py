@@ -164,3 +164,57 @@ def test_budget_status_invalid_year(tmp_path, capsys):
     rc = main(["--ledger", str(ledger), "budget", "status", "--year", "0", "--month", "1"])
     assert rc == 2
     assert "invalid year/month" in capsys.readouterr().err
+
+
+
+# --- Task 4: over-budget warning tests ---
+
+def test_add_no_warning_at_exact_budget(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "100"])
+    # Add entries totalling exactly 100 — no warning
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "60"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-02",
+          "--category", "food", "--amount", "40"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "add", "--day", "2026-04-03",
+               "--category", "food", "--amount", "0.01"])
+    # The 0.01 push over budget should warn
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "over budget" in captured.err
+
+    # Now test exact: fresh ledger
+    ledger2 = tmp_path / "l2.json"
+    main(["--ledger", str(ledger2), "budget", "set", "food", "100"])
+    main(["--ledger", str(ledger2), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "100"])
+    captured2 = capsys.readouterr()
+    assert "over budget" not in captured2.err
+
+
+def test_add_warns_when_over_budget(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "100"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "100"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "add", "--day", "2026-04-02",
+               "--category", "food", "--amount", "1"])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "over budget" in captured.err
+    assert "2026-04" in captured.err
+    # Entry must be saved
+    from ledgerlite import store
+    entries = store.load(ledger)
+    assert len(entries) == 2
+
+
+def test_add_no_warning_no_budget_set(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "999"])
+    captured = capsys.readouterr()
+    assert "over budget" not in captured.err
