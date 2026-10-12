@@ -12,7 +12,25 @@ from .models import Entry
 DEFAULT_LEDGER = Path("ledger.json")
 
 
+def _validate_add(category: str, amount: str) -> tuple[str, int] | None:
+    """Return (error message, exit code) if invalid, else None."""
+    if not category.strip():
+        return ("error: category is required", 2)
+    try:
+        value = Decimal(amount)
+        if not value.is_finite() or value <= 0:
+            return ("error: amount must be positive", 2)
+    except Exception:
+        return ("error: amount must be positive", 2)
+    return None
+
+
 def cmd_add(args: argparse.Namespace) -> int:
+    problem = _validate_add(args.category, args.amount)
+    if problem:
+        msg, code = problem
+        print(msg, file=sys.stderr)
+        return code
     entries = store.load(args.ledger)
     day = date.fromisoformat(args.day)
     entry = Entry(day=day, category=args.category, amount=Decimal(args.amount))
