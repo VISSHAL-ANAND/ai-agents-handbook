@@ -6,10 +6,21 @@ from pathlib import Path
 
 from .models import Entry
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Maps a schema version to the function that upgrades a raw file dict to the next version.
 MIGRATIONS: dict[int, Callable[[dict], dict]] = {}
+
+
+def _migrate_v1_to_v2(data: dict) -> dict:
+    """Add currency field (default 'INR') to every entry that lacks it."""
+    for entry in data.get("entries", []):
+        if "currency" not in entry:
+            entry["currency"] = "INR"
+    return data
+
+
+MIGRATIONS[1] = _migrate_v1_to_v2
 
 
 def _migrate(data: dict) -> dict:
