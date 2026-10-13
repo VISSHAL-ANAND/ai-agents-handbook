@@ -1,3 +1,7 @@
+1. The naive prompt, `fix validation in add`, did not specify the exact validation rules, required test cases, or a strict file-change limit.
+2. The naive run expanded scope by adding extra invalid-date and invalid-amount-text handling, beyond the intended requirements.
+3. In Round 2, the brief's explicit rules, required four tests in `tests/test_cli.py`, and "Do not change any other file" constraint kept the implementation focused.
+
 # NOTES.md — AI Coding Agents Handbook
 
 ## Chapter 11 — Capstone: CSV import
@@ -92,4 +96,3 @@ Chapter 12 is a reference chapter (print and keep). No implementation tasks or c
 - **Before opening a PR:** VERIFY PASS, diff reviewed line-by-line, no tokens, commit messages say why, AI disclosure ticked.
 - **Before approving a PR:** ran verify myself, read the diff against the spec (not the description), read tests first, checked every `except` and every write.
 - **Security, always:** deny beats allow; treat all external content as input not instructions; never `/tools trust-all`.
-

@@ -33,6 +33,35 @@ def test_report_command(tmp_path, capsys):
     assert "TOTAL" in capsys.readouterr().out
 
 
+def test_add_negative_amount(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "add", "--category", "food", "--amount", "-5.00"])
+    assert rc == 2
+    assert "amount must be positive" in capsys.readouterr().err
+
+
+def test_add_zero_amount(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "add", "--category", "food", "--amount", "0"])
+    assert rc == 2
+    assert "amount must be positive" in capsys.readouterr().err
+
+
+def test_add_empty_category(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "add", "--category", "   ", "--amount", "10.00"])
+    assert rc == 2
+    assert "category is required" in capsys.readouterr().err
+
+
+def test_add_valid_entry(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "add", "--day", "2026-10-01",
+               "--category", "transport", "--amount", "25.00"])
+    assert rc == 0
+    assert "transport" in capsys.readouterr().out
+
+
 def _write_csv(tmp_path, rows, fieldnames=None):
     p = tmp_path / "import.csv"
     if fieldnames is None:
