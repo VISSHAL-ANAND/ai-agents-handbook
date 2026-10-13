@@ -1,4 +1,5 @@
 import csv
+from decimal import Decimal
 
 from ledgerlite.cli import main
 
@@ -12,7 +13,6 @@ def test_add_then_list(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "2026-04-02" in out and "food" in out and "99.90" in out
 
-
 def test_list_last_n(tmp_path, capsys):
     ledger = tmp_path / "l.json"
     for d in ("2026-04-01", "2026-04-02", "2026-04-03"):
@@ -21,7 +21,6 @@ def test_list_last_n(tmp_path, capsys):
     main(["--ledger", str(ledger), "list", "--last", "2"])
     lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.strip()]
     assert len(lines) == 2 and lines[0].startswith("2026-04-02")
-
 
 def test_report_command(tmp_path, capsys):
     ledger = tmp_path / "l.json"
@@ -32,13 +31,11 @@ def test_report_command(tmp_path, capsys):
     assert main(["--ledger", str(ledger), "report", "--year", "2026", "--month", "4"]) == 0
     assert "TOTAL" in capsys.readouterr().out
 
-
 def test_add_negative_amount(tmp_path, capsys):
     ledger = tmp_path / "l.json"
     rc = main(["--ledger", str(ledger), "add", "--category", "food", "--amount", "-5.00"])
     assert rc == 2
     assert "amount must be positive" in capsys.readouterr().err
-
 
 def test_add_zero_amount(tmp_path, capsys):
     ledger = tmp_path / "l.json"
@@ -46,13 +43,11 @@ def test_add_zero_amount(tmp_path, capsys):
     assert rc == 2
     assert "amount must be positive" in capsys.readouterr().err
 
-
 def test_add_empty_category(tmp_path, capsys):
     ledger = tmp_path / "l.json"
     rc = main(["--ledger", str(ledger), "add", "--category", "   ", "--amount", "10.00"])
     assert rc == 2
     assert "category is required" in capsys.readouterr().err
-
 
 def test_add_valid_entry(tmp_path, capsys):
     ledger = tmp_path / "l.json"
@@ -60,7 +55,6 @@ def test_add_valid_entry(tmp_path, capsys):
                "--category", "transport", "--amount", "25.00"])
     assert rc == 0
     assert "transport" in capsys.readouterr().out
-
 
 def _write_csv(tmp_path, rows, fieldnames=None):
     p = tmp_path / "import.csv"
@@ -71,7 +65,6 @@ def _write_csv(tmp_path, rows, fieldnames=None):
         writer.writeheader()
         writer.writerows(rows)
     return p
-
 
 def test_import_valid_csv(tmp_path, capsys):
     ledger = tmp_path / "l.json"
@@ -89,7 +82,6 @@ def test_import_valid_csv(tmp_path, capsys):
     entries = store.load(ledger)
     assert len(entries) == 2
 
-
 def test_import_file_not_found(tmp_path, capsys):
     ledger = tmp_path / "l.json"
     rc = main(["--ledger", str(ledger), "import", str(tmp_path / "missing.csv")])
@@ -99,7 +91,6 @@ def test_import_file_not_found(tmp_path, capsys):
     assert out == ""
     # ledger untouched
     assert not ledger.exists()
-
 
 def test_import_invalid_rows_no_partial_write(tmp_path, capsys):
     ledger = tmp_path / "l.json"
@@ -117,7 +108,6 @@ def test_import_invalid_rows_no_partial_write(tmp_path, capsys):
     # nothing written
     assert not ledger.exists()
 
-
 def test_import_empty_csv(tmp_path, capsys):
     ledger = tmp_path / "l.json"
     p = tmp_path / "empty.csv"
@@ -126,7 +116,6 @@ def test_import_empty_csv(tmp_path, capsys):
     out, err = capsys.readouterr()
     assert rc == 2
     assert "no data rows" in err.lower()
-
 
 def test_import_duplicate_skipped(tmp_path, capsys):
     ledger = tmp_path / "l.json"
@@ -147,3 +136,167 @@ def test_import_duplicate_skipped(tmp_path, capsys):
     from ledgerlite import store
     entries = store.load(ledger)
     assert len(entries) == 2  # original + 1 new, not 3
+
+def test_budget_set_persists(tmp_path, capsys):
+    from ledgerlite import store
+
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "budget food set to 5000" in out
+    budgets = store.load_budgets(ledger)
+    assert budgets["food"] == 5000
+
+def test_budget_set_overwrites(tmp_path, capsys):
+    from ledgerlite import store
+
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    main(["--ledger", str(ledger), "budget", "set", "food", "3000"])
+    capsys.readouterr()
+    assert store.load_budgets(ledger)["food"] == Decimal("3000")
+
+def test_budget_set_zero_amount(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "budget", "set", "food", "0"])
+    assert rc == 2
+    assert "amount must be positive" in capsys.readouterr().err
+    assert not ledger.exists()
+
+def test_budget_set_negative_amount(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "budget", "set", "food", "-100"])
+    assert rc == 2
+    assert "amount must be positive" in capsys.readouterr().err
+    assert not ledger.exists()
+
+def test_budget_set_invalid_amount(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "budget", "set", "food", "abc"])
+    assert rc == 2
+    assert "amount must be positive" in capsys.readouterr().err
+    assert not ledger.exists()
+
+def test_budget_set_empty_category(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    rc = main(["--ledger", str(ledger), "budget", "set", "   ", "5000"])
+    assert rc == 2
+    assert "category is required" in capsys.readouterr().err
+    assert not ledger.exists()
+
+def test_budget_status_shows_values(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "3200"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "food" in out
+    assert "5000" in out
+    assert "3200" in out
+    assert "1800" in out
+
+def test_budget_status_negative_remaining(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "100"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "150"])
+    capsys.readouterr()
+    main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    out = capsys.readouterr().out
+    assert "-50" in out
+
+def test_budget_status_no_budgets(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "100"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    assert rc == 0
+    assert "no budgets set" in capsys.readouterr().out
+
+def test_budget_status_omits_unbudgeted(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "rent", "15000"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-05",
+          "--category", "food", "--amount", "100"])
+    capsys.readouterr()
+    main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "4"])
+    out = capsys.readouterr().out
+    assert "food" not in out
+    assert "rent" in out
+
+def test_budget_status_december(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "12"])
+    assert rc == 0
+
+def test_budget_status_invalid_month(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "2026", "--month", "13"])
+    assert rc == 2
+    assert "invalid year/month" in capsys.readouterr().err
+
+def test_budget_status_invalid_year(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "5000"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "budget", "status", "--year", "0", "--month", "1"])
+    assert rc == 2
+    assert "invalid year/month" in capsys.readouterr().err
+
+def test_add_no_warning_at_exact_budget(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "100"])
+    # Add entries totalling exactly 100 — no warning
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "60"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-02",
+          "--category", "food", "--amount", "40"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "add", "--day", "2026-04-03",
+               "--category", "food", "--amount", "0.01"])
+    # The 0.01 push over budget should warn
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "over budget" in captured.err
+
+    # Now test exact: fresh ledger
+    ledger2 = tmp_path / "l2.json"
+    main(["--ledger", str(ledger2), "budget", "set", "food", "100"])
+    main(["--ledger", str(ledger2), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "100"])
+    captured2 = capsys.readouterr()
+    assert "over budget" not in captured2.err
+
+def test_add_warns_when_over_budget(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "budget", "set", "food", "100"])
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "100"])
+    capsys.readouterr()
+    rc = main(["--ledger", str(ledger), "add", "--day", "2026-04-02",
+               "--category", "food", "--amount", "1"])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "over budget" in captured.err
+    assert "2026-04" in captured.err
+    # Entry must be saved
+    from ledgerlite import store
+    entries = store.load(ledger)
+    assert len(entries) == 2
+
+def test_add_no_warning_no_budget_set(tmp_path, capsys):
+    ledger = tmp_path / "l.json"
+    main(["--ledger", str(ledger), "add", "--day", "2026-04-01",
+          "--category", "food", "--amount", "999"])
+    captured = capsys.readouterr()
+    assert "over budget" not in captured.err
