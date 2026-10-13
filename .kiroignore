@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 guard-audit.log
+# Chapter 10 additions: keep large/irrelevant content out of context
+fixtures/injection/
+*.json
+patches/
