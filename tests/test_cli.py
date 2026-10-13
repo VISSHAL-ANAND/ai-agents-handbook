@@ -1,3 +1,5 @@
+import csv
+
 from ledgerlite.cli import main
 
 
@@ -29,8 +31,6 @@ def test_report_command(tmp_path, capsys):
     capsys.readouterr()
     assert main(["--ledger", str(ledger), "report", "--year", "2026", "--month", "4"]) == 0
     assert "TOTAL" in capsys.readouterr().out
-
-import csv
 
 
 def _write_csv(tmp_path, rows, fieldnames=None):
