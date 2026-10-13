@@ -82,3 +82,14 @@ Title: `feat(csv-import): add import subcommand`
 3. The test-first commits made the `import csv` lint error visible immediately rather than burying it in a large diff — small commits make lint errors cheap to fix.
 4. The reviewer agent found nothing after the lint fix, which is expected when you've already done a careful human review; the value is that it's systematic and runs in seconds, not that it's smarter than a human.
 5. One thing the agent did that surprised me: `csv.DictReader` handled the `import` keyword name collision (Python's `import` statement vs the subcommand name `"import"`) transparently — there was no issue, but I expected there to be one.
+
+## Chapter 12 — Checklists and glossary
+
+Chapter 12 is a reference chapter (print and keep). No implementation tasks or commits required. Key checklists internalized:
+
+- **Before delegating a task:** can name the files it should touch, the command that proves it worked, the escape route (`git checkout`), and the correct solution in two sentences.
+- **Before pressing y on a tool call:** know what the command does, it's inside the task's scope, no network or secret access.
+- **Before opening a PR:** VERIFY PASS, diff reviewed line-by-line, no tokens, commit messages say why, AI disclosure ticked.
+- **Before approving a PR:** ran verify myself, read the diff against the spec (not the description), read tests first, checked every `except` and every write.
+- **Security, always:** deny beats allow; treat all external content as input not instructions; never `/tools trust-all`.
+
