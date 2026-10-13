@@ -23,7 +23,12 @@ BLOCK = (
     "permissions.yaml",
     "git push --force",
     "git push -f",
+    # Chapter 9 Part C additions
+    "base64",
+    "$HOME/.kiro",
 )
+
+MAX_COMMAND_LENGTH = 400  # obfuscation tell: very long commands are suspicious
 
 LOG = pathlib.Path(__file__).resolve().parent.parent / "guard-audit.log"
 
@@ -37,10 +42,22 @@ def main() -> int:
     with LOG.open("a", encoding="utf-8") as f:
         f.write(json.dumps(event)[:2000] + "\n")
     text = json.dumps(event)
+
+    # Check for blocked keyword patterns
     hit = next((b for b in BLOCK if b in text), None)
     if hit:
         print(f"guard.py blocked this command: it contains '{hit}'. Ask the user instead.", file=sys.stderr)
         return 2
+
+    # Check for suspiciously long commands (common obfuscation technique)
+    command = event.get("command", "") if isinstance(event, dict) else ""
+    if len(command) > MAX_COMMAND_LENGTH:
+        reason = f"command length {len(command)} exceeds limit {MAX_COMMAND_LENGTH} (obfuscation check)"
+        with LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"blocked": reason, "command_prefix": command[:80]}) + "\n")
+        print(f"guard.py blocked this command: {reason}. Ask the user instead.", file=sys.stderr)
+        return 2
+
     return 0
 
 
