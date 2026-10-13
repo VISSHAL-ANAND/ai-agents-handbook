@@ -28,6 +28,34 @@
 
 **What would have happened with Quick Spec:** The budget amounts would likely have been stored as `float`, the schema version would not have been bumped, and the over-budget warning would have gone to stdout instead of stderr. Three silent defects, none caught by a green test suite.
 
+### Phase 0: Six EARS acceptance criteria
+
+**Criterion 1 — Ubiquitous (storage format)**
+The system shall store budgets in the ledger file under a `budgets` key mapping category to a Decimal amount.
+
+**Criterion 2 — Event-driven (`budget set`)**
+WHEN the user runs `budget set <category> <amount>` the system shall persist the budget and print `budget <category> set to <amount>`.
+
+**Criterion 3 — Event-driven (`budget status`)**
+WHEN the user runs `budget status --year Y --month M`, the system shall print one line per budgeted category showing the budget amount, the month's total spend, and the remaining amount (budget minus spent), and exit with code 0.
+*(Open for design phase: exact output format — column layout, labels, ordering.)*
+
+**Criterion 4 — Unwanted (invalid amount)**
+IF the `<amount>` argument to `budget set` is not a positive Decimal (zero, negative, non-numeric, or non-finite), THEN the system shall print `error: amount must be positive` to stderr, exit with code 2, and leave the ledger file unchanged.
+*(Open for design phase: whether error message wording must match `add` exactly.)*
+
+**Criterion 5 — State-driven (over-budget warning)**
+WHILE the total spend for the category and calendar month of the newly added entry is strictly greater than (not equal to) that category's budget, the system shall print a warning to stderr after a successful `add` and exit with code 0.
+*(Open for design phase: exact warning message text and format.)*
+
+**Criterion 6 — Optional (no budget set)**
+WHERE no budget has been set for a category, `budget status` shall omit that category from its output and exit with code 0.
+*(Open for design phase: what to print when no budgets exist at all.)*
+
+### Reflect
+
+The design phase caught the biggest mistake: the initial `store.save()` design would have silently dropped the `budgets` key every time `cmd_add` saved entries, because `save()` only wrote `entries`. Catching this in `design.md` before implementation prevented a data-loss bug. Using Quick Spec would have skipped the design review gate, and the bug would have landed in the implementation and been hard to diagnose — budget data would disappear after every `add`.
+
 ## Chapter 6 — Debugging with the agent
 
 **Root cause:** In `src/ledgerlite/report.py` line 13, `month_range` computes the last day as `date(year, month + 1, 1) - timedelta(days=1)`. When `month=12`, `month + 1 = 13` is out of the valid range and Python raises `ValueError: month must be in 1..12`. The agent identified the root cause precisely on the first ask — it pointed to the exact line and explained that `month + 1` overflows the valid month range for December. The fix was a single conditional: when `month == 12`, use `date(year + 1, 1, 1) - timedelta(days=1)`.
@@ -238,33 +266,3 @@ Chapter 12 is a reference chapter (print and keep). No implementation tasks or c
 - **Before opening a PR:** VERIFY PASS, diff reviewed line-by-line, no tokens, commit messages say why, AI disclosure ticked.
 - **Before approving a PR:** ran verify myself, read the diff against the spec (not the description), read tests first, checked every `except` and every write.
 - **Security, always:** deny beats allow; treat all external content as input not instructions; never `/tools trust-all`.
-
----
-
-## Chapter 5 — Phase 0: Category budgets acceptance criteria
-
-**Criterion 1 — Ubiquitous (storage format)**
-The system shall store budgets in the ledger file under a `budgets` key mapping category to a Decimal amount.
-
-**Criterion 2 — Event-driven (`budget set`)**
-WHEN the user runs `budget set <category> <amount>` the system shall persist the budget and print `budget <category> set to <amount>`.
-
-**Criterion 3 — Event-driven (`budget status`)**
-WHEN the user runs `budget status --year Y --month M`, the system shall print one line per budgeted category showing the budget amount, the month's total spend, and the remaining amount (budget minus spent), and exit with code 0.
-*(Open for design phase: exact output format — column layout, labels, ordering.)*
-
-**Criterion 4 — Unwanted (invalid amount)**
-IF the `<amount>` argument to `budget set` is not a positive Decimal (zero, negative, non-numeric, or non-finite), THEN the system shall print `error: amount must be positive` to stderr, exit with code 2, and leave the ledger file unchanged.
-*(Open for design phase: whether error message wording must match `add` exactly.)*
-
-**Criterion 5 — State-driven (over-budget warning)**
-WHILE the total spend for the category and calendar month of the newly added entry is strictly greater than (not equal to) that category's budget, the system shall print a warning to stderr after a successful `add` and exit with code 0.
-*(Open for design phase: exact warning message text and format.)*
-
-**Criterion 6 — Optional (no budget set)**
-WHERE no budget has been set for a category, `budget status` shall omit that category from its output and exit with code 0.
-*(Open for design phase: what to print when no budgets exist at all.)*
-
-## Chapter 5 — Reflect
-
-The design phase caught the biggest mistake: the initial `store.save()` design would have silently dropped the `budgets` key every time `cmd_add` saved entries, because `save()` only wrote `entries`. Catching this in `design.md` before implementation prevented a data-loss bug. Using Quick Spec would have skipped the design review gate, and the bug would have landed in the implementation and been hard to diagnose — budget data would disappear after every `add`.
