@@ -124,3 +124,47 @@ def test_parse_header_only(tmp_path):
     p.write_text("day,category,amount\n", encoding="utf-8")
     with pytest.raises(ValueError, match="no data rows"):
         parse_csv(p)
+
+
+# --- Integration and edge case tests (Task 3) ---
+
+def test_import_preserves_existing_entries(tmp_path):
+    """Importing into a ledger with existing entries must not modify those entries."""
+    from ledgerlite import store
+    from ledgerlite.cli import main as cli_main
+
+    ledger = tmp_path / "l.json"
+    # pre-load two entries via CLI
+    cli_main(["--ledger", str(ledger), "add", "--day", "2024-01-01",
+              "--category", "seed", "--amount", "999"])
+    cli_main(["--ledger", str(ledger), "add", "--day", "2024-01-02",
+              "--category", "seed2", "--amount", "888"])
+
+    p = _write_csv(tmp_path, [{"day": "2024-06-01", "category": "new", "amount": "1"}])
+    cli_main(["--ledger", str(ledger), "import", str(p)])
+
+    entries = store.load(ledger)
+    assert len(entries) == 3
+    # originals untouched
+    assert any(e.category == "seed" for e in entries)
+    assert any(e.category == "seed2" for e in entries)
+
+
+def test_import_decimal_precision(tmp_path):
+    """Amounts with many decimal places are stored exactly as Decimal, not float-rounded."""
+    p = _write_csv(tmp_path, [{"day": "2024-05-05", "category": "misc", "amount": "1.23456789"}])
+    entries, errors = parse_csv(p)
+    assert errors == []
+    assert str(entries[0].amount) == "1.23456789"
+
+
+def test_import_mixed_valid_invalid_no_write(tmp_path):
+    """A mix of valid and invalid rows writes nothing (atomic reject)."""
+    p = _write_csv(tmp_path, [
+        {"day": "2024-04-01", "category": "food", "amount": "100"},
+        {"day": "2024-04-02", "category": "food", "amount": "bad"},  # invalid
+    ])
+    entries, errors = parse_csv(p)
+    assert entries == []
+    assert len(errors) == 1
+    assert "row 2" in errors[0]
