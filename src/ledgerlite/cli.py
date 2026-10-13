@@ -7,12 +7,31 @@ from decimal import Decimal
 from pathlib import Path
 
 from . import report, store
+from .importer import parse_csv
 from .models import Entry
 
 DEFAULT_LEDGER = Path("ledger.json")
 
 
+def _validate_add(category: str, amount: str) -> tuple[str, int] | None:
+    """Return (error message, exit code) if invalid, else None."""
+    if not category.strip():
+        return ("error: category is required", 2)
+    try:
+        value = Decimal(amount)
+        if not value.is_finite() or value <= 0:
+            return ("error: amount must be positive", 2)
+    except Exception:
+        return ("error: amount must be positive", 2)
+    return None
+
+
 def cmd_add(args: argparse.Namespace) -> int:
+    problem = _validate_add(args.category, args.amount)
+    if problem:
+        msg, code = problem
+        print(msg, file=sys.stderr)
+        return code
     entries = store.load(args.ledger)
     day = date.fromisoformat(args.day)
     entry = Entry(day=day, category=args.category, amount=Decimal(args.amount))
@@ -38,6 +57,45 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import(args: argparse.Namespace) -> int:
+    """Import entries from a CSV file (day,category,amount). Validates all rows before writing."""
+    csv_path = args.csvfile
+
+    # Parse and validate
+    try:
+        new_entries, errors = parse_csv(csv_path)
+    except FileNotFoundError:
+        print(f"error: file not found: {csv_path}", file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    if errors:
+        for err in errors:
+            print(err, file=sys.stderr)
+        return 2
+
+    # Deduplicate against existing ledger entries
+    existing = store.load(args.ledger)
+    existing_set = {(e.day, e.category, e.amount) for e in existing}
+
+    to_add = []
+    for entry in new_entries:
+        key = (entry.day, entry.category, entry.amount)
+        if key in existing_set:
+            print(
+                f"warning: skipping duplicate entry {entry.day} {entry.category} {entry.amount}",
+                file=sys.stderr,
+            )
+        else:
+            to_add.append(entry)
+
+    store.save(args.ledger, existing + to_add)
+    print(f"imported {len(to_add)} entries")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="ledgerlite", description="Tiny expense ledger.")
     p.add_argument(
@@ -59,6 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--year", type=int, required=True)
     r.add_argument("--month", type=int, required=True)
     r.set_defaults(func=cmd_report)
+
+    imp = sub.add_parser("import", help="import entries from a CSV file")
+    imp.add_argument("csvfile", type=Path, help="CSV file with day,category,amount columns")
+    imp.set_defaults(func=cmd_import)
+
     return p
 
 
