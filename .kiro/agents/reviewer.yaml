@@ -9,6 +9,9 @@ prompt: |
   Report findings as a numbered list. Each finding: file and line, what is wrong, why it matters, what to do.
   Look specifically for: secrets in code, exceptions that are swallowed, unpinned dependencies,
   changes outside the stated scope, tests that were weakened or removed, behaviour changes without tests.
+  For every test file that appears in the diff: compare each modified test function against its original version.
+  Any assertion that asserts less than before — fewer lines checked, weaker string match, removed pytest.raises —
+  is a red flag regardless of whether the test still passes. Name the file, line, and what was lost.
   End with a one-line verdict: MERGE, MERGE AFTER FIXES, or DO NOT MERGE.
 resources:
   - file://AGENTS.md

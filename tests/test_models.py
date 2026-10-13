@@ -10,5 +10,5 @@ def test_roundtrip():
 
 
 def test_amount_is_decimal_not_float():
-    e = Entry.from_dict({"day": "2026-01-01", "category": "x", "amount": "0.10"})
+    e = Entry.from_dict({"day": "2026-01-01", "category": "x", "amount": "0.10", "currency": "INR"})
     assert e.amount + Decimal("0.20") == Decimal("0.30")
